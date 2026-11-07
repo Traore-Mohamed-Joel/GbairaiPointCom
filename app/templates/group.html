@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discussion | GbairaiPointCom</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+    <main class="chat-container" data-group-id="{{ group_id }}">
+
+        <header class="chat-header">
+            <div>
+                <h1 id="group-name">Discussion du groupe</h1>
+                <p>GbairaiPointCom</p>
+            </div>
+
+            <a href="/dashboard">Retour aux groupes</a>
+        </header>
+
+        <section id="messages-list" class="messages-list">
+            Chargement des messages...
+        </section>
+
+        <form id="message-form" class="message-form">
+            <input
+                type="text"
+                id="message-content"
+                placeholder="Écris ton message..."
+                maxlength="5000"
+                required
+            >
+
+            <button type="submit">Envoyer</button>
+        </form>
+
+        <form id="image-form" class="image-form">
+            <input
+                type="file"
+                id="image-file"
+                accept="image/jpeg,image/png,image/webp"
+                required
+            >
+
+            <button type="submit">Envoyer une image</button>
+        </form>
+
+        <p id="chat-message" role="status"></p>
+
+    </main>
+
+    <script src="/static/js/chat.js?v=2"></script>
+
+</body>
+</html>
