@@ -1,12 +1,11 @@
-import jwt
-
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session  
+from jwt.exceptions import InvalidTokenError
 
-from app.database import get_db, settings
+from app.database import get_db
 from app.models.user import User
+from app.security import decode_access_token
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
@@ -19,25 +18,18 @@ def get_current_user(
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Authentification invalide ou expirée.",
+        detail="Identifiants invalides ou token expiré",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
     try:
-        payload = jwt.decode(
-            token,
-            settings.jwt_secret_key,
-            algorithms=[settings.jwt_algorithm],
-        )
-
+        payload = decode_access_token(token)
         user_id = int(payload.get("sub"))
 
-    except (jwt.InvalidTokenError, TypeError, ValueError):
+    except (InvalidTokenError, TypeError, ValueError):
         raise credentials_exception
 
-    user = db.scalar(
-        select(User).where(User.id == user_id)
-    )
+    user = db.query(User).filter(User.id == user_id).first()
 
     if user is None:
         raise credentials_exception

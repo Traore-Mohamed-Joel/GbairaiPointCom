@@ -21,3 +21,8 @@ class GroupResponse(BaseModel):
 class GroupJoinResponse(BaseModel):
     message: str
     group_id: int
+
+
+class GroupMemberResponse(BaseModel):
+    username: str
+    role: str

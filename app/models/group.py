@@ -1,6 +1,14 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    String,
+    Text,
+    func,
+    Index,
+)
+
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -34,3 +42,11 @@ class Group(Base):
         server_default=func.now(),
         nullable=False,
     )
+
+
+# Interdit les noms identiques, sans tenir compte des majuscules.
+Index(
+    "uq_groups_name_lower",
+    func.lower(Group.name),
+    unique=True,
+)

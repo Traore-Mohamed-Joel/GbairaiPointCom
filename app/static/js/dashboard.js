@@ -4,6 +4,8 @@ const token = sessionStorage.getItem("access_token");
 const message = document.getElementById("message");
 const groupsList = document.getElementById("groups-list");
 
+let currentUser = null;
+
 // Vérifier la connexion
 if (!token) {
     window.location.replace("/login");
@@ -40,6 +42,43 @@ function showMessage(text, type = "success") {
     message.className = type;
 }
 
+// Charger le profil connecté
+async function loadCurrentUser() {
+    currentUser = await apiRequest("/me");
+}
+
+// Afficher les membres d'un groupe
+async function showMembers(groupId, membersContainer) {
+    try {
+        const members = await apiRequest(
+            `/groups/${groupId}/members`
+        );
+
+        membersContainer.replaceChildren();
+
+        const title = document.createElement("h4");
+        title.textContent = "Membres du groupe";
+        membersContainer.appendChild(title);
+
+        if (members.length === 0) {
+            membersContainer.textContent = "Aucun membre.";
+            return;
+        }
+
+        members.forEach((member) => {
+            const item = document.createElement("p");
+
+            item.textContent =
+                `${member.username} — ${member.role}`;
+
+            membersContainer.appendChild(item);
+        });
+
+    } catch (error) {
+        showMessage(error.message, "error");
+    }
+}
+
 // Charger les groupes
 async function loadGroups() {
     try {
@@ -53,24 +92,115 @@ async function loadGroups() {
         }
 
         groups.forEach((group) => {
-    // Toute la carte devient un lien vers la discussion
-    const card = document.createElement("a");
-    card.href = `/groups/${group.id}/chat`;
-    card.className = "dashboard-card group-card";
+            const card = document.createElement("div");
+            card.className = "dashboard-card group-card";
 
-    const title = document.createElement("h3");
-    title.textContent = group.name;
+            // Lien vers la discussion
+            const link = document.createElement("a");
+            link.href = `/groups/${group.id}/chat`;
+            link.className = "group-link";
 
-    const description = document.createElement("p");
-    description.textContent =
-        group.description || "Aucune description.";
+            const title = document.createElement("h3");
+            title.textContent = group.name;
 
-    const id = document.createElement("small");
-    id.textContent = `Identifiant : ${group.id}`;
+            const description = document.createElement("p");
+            description.textContent =
+                group.description || "Aucune description.";
 
-    card.append(title, description, id);
-    groupsList.appendChild(card);
-});
+            const id = document.createElement("small");
+            id.textContent = `Identifiant : ${group.id}`;
+
+            link.append(title, description, id);
+
+            // Zone des actions
+            const actions = document.createElement("div");
+            actions.className = "group-actions-buttons";
+
+            // Bouton Voir les membres
+            const membersButton = document.createElement("button");
+            membersButton.type = "button";
+            membersButton.textContent = "Voir les membres";
+
+            const membersContainer = document.createElement("div");
+            membersContainer.className = "group-members";
+            membersContainer.hidden = true;
+
+            membersButton.addEventListener("click", async () => {
+                if (membersContainer.hidden) {
+                    membersContainer.hidden = false;
+                    await showMembers(group.id, membersContainer);
+                } else {
+                    membersContainer.hidden = true;
+                }
+            });
+
+            actions.appendChild(membersButton);
+
+            // Vérifier si l'utilisateur est le créateur
+            const isCreator = group.created_by === currentUser.id;
+
+            if (isCreator) {
+                // Bouton Supprimer le groupe
+                const deleteButton = document.createElement("button");
+                deleteButton.type = "button";
+                deleteButton.textContent = "Supprimer le groupe";
+
+                deleteButton.addEventListener("click", async () => {
+                    const confirmed = window.confirm(
+                        `Veux-tu vraiment supprimer le groupe "${group.name}" ?`
+                    );
+
+                    if (!confirmed) return;
+
+                    try {
+                        const result = await apiRequest(
+                            `/groups/${group.id}`,
+                            { method: "DELETE" }
+                        );
+
+                        showMessage(result.message);
+                        await loadGroups();
+
+                    } catch (error) {
+                        showMessage(error.message, "error");
+                    }
+                });
+
+                actions.appendChild(deleteButton);
+
+            } else {
+                // Bouton Quitter le groupe
+                const leaveButton = document.createElement("button");
+                leaveButton.type = "button";
+                leaveButton.textContent = "Quitter le groupe";
+
+                leaveButton.addEventListener("click", async () => {
+                    const confirmed = window.confirm(
+                        `Veux-tu vraiment quitter le groupe "${group.name}" ?`
+                    );
+
+                    if (!confirmed) return;
+
+                    try {
+                        const result = await apiRequest(
+                            `/groups/${group.id}/leave`,
+                            { method: "POST" }
+                        );
+
+                        showMessage(result.message);
+                        await loadGroups();
+
+                    } catch (error) {
+                        showMessage(error.message, "error");
+                    }
+                });
+
+                actions.appendChild(leaveButton);
+            }
+
+            card.append(link, actions, membersContainer);
+            groupsList.appendChild(card);
+        });
 
     } catch (error) {
         showMessage(error.message, "error");
@@ -81,7 +211,6 @@ async function loadGroups() {
 // Créer un groupe
 document.getElementById("create-group-form")
     .addEventListener("submit", async (event) => {
-
         event.preventDefault();
 
         const name = document.getElementById("group-name").value.trim();
@@ -102,7 +231,6 @@ document.getElementById("create-group-form")
             });
 
             showMessage("Groupe créé avec succès !");
-
             event.target.reset();
 
             await loadGroups();
@@ -115,7 +243,6 @@ document.getElementById("create-group-form")
 // Rejoindre un groupe
 document.getElementById("join-group-form")
     .addEventListener("submit", async (event) => {
-
         event.preventDefault();
 
         const groupId = document.getElementById("group-id").value;
@@ -127,7 +254,6 @@ document.getElementById("join-group-form")
             );
 
             showMessage(result.message);
-
             event.target.reset();
 
             await loadGroups();
@@ -140,10 +266,18 @@ document.getElementById("join-group-form")
 // Déconnexion
 document.getElementById("logout-button")
     .addEventListener("click", () => {
-
         sessionStorage.removeItem("access_token");
         window.location.replace("/login");
     });
 
-// Charger les groupes au démarrage
-loadGroups();
+// Initialisation du tableau de bord
+async function initializeDashboard() {
+    try {
+        await loadCurrentUser();
+        await loadGroups();
+    } catch (error) {
+        showMessage(error.message, "error");
+    }
+}
+
+initializeDashboard();
